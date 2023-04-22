@@ -1,246 +1,270 @@
-/*
-
-    Copyright 2010 Etay Meiri
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    Tutorial 15 - Camera Control - Part 2
-*/
-
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
 #include <math.h>
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 
 #include "pipeline.h"
 #include "camera.h"
+#include "texture.h"
+#include "lighting_technique.h"
+#include "glut_backend.h"
+#include "util.h"
 
-#define WINDOW_WIDTH  1024
-#define WINDOW_HEIGHT 768
+#define WINDOW_WIDTH  1280
+#define WINDOW_HEIGHT 1024
 
-GLuint VBO;
-GLuint IBO;
-GLuint gWVPLocation;
-
-Camera* pGameCamera = NULL;
-
-static const char* pVS = "                                                          \n\
-#version 330                                                                        \n\
-                                                                                    \n\
-layout (location = 0) in vec3 Position;                                             \n\
-                                                                                    \n\
-uniform mat4 gWVP;                                                                  \n\
-                                                                                    \n\
-out vec4 Color;                                                                     \n\
-                                                                                    \n\
-void main()                                                                         \n\
-{                                                                                   \n\
-    gl_Position = gWVP * vec4(Position, 1.0);                                       \n\
-    Color = vec4(clamp(Position, 0.0, 1.0), 1.0);                                   \n\
-}";
-
-static const char* pFS = "                                                          \n\
-#version 330                                                                        \n\
-                                                                                    \n\
-in vec4 Color;                                                                      \n\
-                                                                                    \n\
-out vec4 FragColor;                                                                 \n\
-                                                                                    \n\
-void main()                                                                         \n\
-{                                                                                   \n\
-    FragColor = Color;                                                              \n\
-}";
-
-static void RenderSceneCB()
+struct Vertex
 {
-    pGameCamera->OnRender();
+    Vector3f m_pos;
+    Vector2f m_tex;
+    Vector3f m_normal;
 
-    glClear(GL_COLOR_BUFFER_BIT);
+    Vertex() {}
 
-    static float Scale = 0.0f;
-
-    Scale += 0.1f;
-
-    Pipeline p;
-    p.Rotate(0.0f, Scale, 0.0f);
-    p.WorldPos(0.0f, 0.0f, 3.0f);
-    p.SetCamera(pGameCamera->GetPos(), pGameCamera->GetTarget(), pGameCamera->GetUp());
-    p.SetPerspectiveProj(60.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 1.0f, 100.0f);
-
-    glUniformMatrix4fv(gWVPLocation, 1, GL_TRUE, (const GLfloat*)p.GetTrans());
-
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-
-    glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0);
-
-    glDisableVertexAttribArray(0);
-
-    glutSwapBuffers();
-}
-
-
-static void SpecialKeyboardCB(int Key, int x, int y)
-{
-    pGameCamera->OnKeyboard(Key);
-}
-
-
-static void KeyboardCB(unsigned char Key, int x, int y)
-{
-    switch (Key) {
-    case 'q':
-        exit(0);
+    Vertex(Vector3f pos, Vector2f tex)
+    {
+        m_pos = pos;
+        m_tex = tex;
+        m_normal = Vector3f(0.0f, 0.0f, 0.0f);
     }
-}
+};
 
-static void PassiveMouseCB(int x, int y)
+class Main : public ICallbacks
 {
-    pGameCamera->OnMouse(x, y);
-}
+public:
 
-static void InitializeGlutCallbacks()
-{
-    glutDisplayFunc(RenderSceneCB);
-    glutIdleFunc(RenderSceneCB);
-    glutSpecialFunc(SpecialKeyboardCB);
-    glutPassiveMotionFunc(PassiveMouseCB);
-    glutKeyboardFunc(KeyboardCB);
-}
-
-static void CreateVertexBuffer()
-{
-    Vector3f Vertices[4];
-    Vertices[0] = Vector3f(-1.0f, -1.0f, 0.5773f);
-    Vertices[1] = Vector3f(0.0f, -1.0f, -1.15475);
-    Vertices[2] = Vector3f(1.0f, -1.0f, 0.5773f);
-    Vertices[3] = Vector3f(0.0f, 1.0f, 0.0f);
-
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
-}
-
-static void CreateIndexBuffer()
-{
-    unsigned int Indices[] = { 0, 3, 1,
-                               1, 3, 2,
-                               2, 3, 0,
-                               0, 2, 1 };
-
-    glGenBuffers(1, &IBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices), Indices, GL_STATIC_DRAW);
-}
-
-static void AddShader(GLuint ShaderProgram, const char* pShaderText, GLenum ShaderType)
-{
-    GLuint ShaderObj = glCreateShader(ShaderType);
-
-    if (ShaderObj == 0) {
-        fprintf(stderr, "Error creating shader type %d\n", ShaderType);
-        exit(0);
+    Main()
+    {
+        m_pGameCamera = NULL;
+        m_pTexture = NULL;
+        m_pEffect = NULL;
+        m_scale = 0.0f;
+        m_directionalLight.Color = Vector3f(1.0f, 1.0f, 1.0f);
+        m_directionalLight.AmbientIntensity = 0.0f;
+        m_directionalLight.DiffuseIntensity = 0.0f;
+        m_directionalLight.Direction = Vector3f(1.0f, 0.0f, 0.0f);
     }
 
-    const GLchar* p[1];
-    p[0] = pShaderText;
-    GLint Lengths[1];
-    Lengths[0] = strlen(pShaderText);
-    glShaderSource(ShaderObj, 1, p, Lengths);
-    glCompileShader(ShaderObj);
-    GLint success;
-    glGetShaderiv(ShaderObj, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        GLchar InfoLog[1024];
-        glGetShaderInfoLog(ShaderObj, 1024, NULL, InfoLog);
-        fprintf(stderr, "Error compiling shader type %d: '%s'\n", ShaderType, InfoLog);
-        exit(1);
+    ~Main()
+    {
+        delete m_pEffect;
+        delete m_pGameCamera;
+        delete m_pTexture;
     }
 
-    glAttachShader(ShaderProgram, ShaderObj);
-}
+    bool Init()
+    {
+        Vector3f Pos(-10.0f, 0.0f, -10.0f);
+        Vector3f Target(1.0f, 0.0f, 1.0f);
+        Vector3f Up(0.0, 1.0f, 0.0f);
+        m_pGameCamera = new Camera(WINDOW_WIDTH, WINDOW_HEIGHT, Pos, Target, Up);
 
-static void CompileShaders()
-{
-    GLuint ShaderProgram = glCreateProgram();
+        unsigned int Indices[] = { 0, 2, 1,
+                                   0, 3, 2 };
 
-    if (ShaderProgram == 0) {
-        fprintf(stderr, "Error creating shader program\n");
-        exit(1);
+        CreateIndexBuffer(Indices, sizeof(Indices));
+
+        CreateVertexBuffer(Indices, ARRAY_SIZE_IN_ELEMENTS(Indices));
+
+        m_pEffect = new LightingTechnique();
+
+        if (!m_pEffect->Init())
+        {
+            printf("Error initializing the lighting technique\n");
+            return false;
+        }
+
+        m_pEffect->Enable();
+
+        m_pEffect->SetTextureUnit(0);
+        Magick::InitializeMagick(nullptr); // <--- added this line
+        m_pTexture = new Texture(GL_TEXTURE_2D, "C:\\Users\\Шамиль\\Downloads\\test.png");
+
+        if (!m_pTexture->Load()) {
+            return false;
+        }
+
+        return true;
     }
 
-    AddShader(ShaderProgram, pVS, GL_VERTEX_SHADER);
-    AddShader(ShaderProgram, pFS, GL_FRAGMENT_SHADER);
-
-    GLint Success = 0;
-    GLchar ErrorLog[1024] = { 0 };
-
-    glLinkProgram(ShaderProgram);
-    glGetProgramiv(ShaderProgram, GL_LINK_STATUS, &Success);
-    if (Success == 0) {
-        glGetProgramInfoLog(ShaderProgram, sizeof(ErrorLog), NULL, ErrorLog);
-        fprintf(stderr, "Error linking shader program: '%s'\n", ErrorLog);
-        exit(1);
+    void Run()
+    {
+        GLUTBackendRun(this);
     }
 
-    glValidateProgram(ShaderProgram);
-    glGetProgramiv(ShaderProgram, GL_VALIDATE_STATUS, &Success);
-    if (!Success) {
-        glGetProgramInfoLog(ShaderProgram, sizeof(ErrorLog), NULL, ErrorLog);
-        fprintf(stderr, "Invalid shader program: '%s'\n", ErrorLog);
-        exit(1);
+    virtual void RenderSceneCB()
+    {
+        m_pGameCamera->OnRender();
+
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        m_scale += 0.01f;
+
+        SpotLight sl[2];
+        sl[0].DiffuseIntensity = 15.0f;
+        sl[0].Color = Vector3f(1.0f, 1.0f, 0.7f);
+        sl[0].Position = Vector3f(-0.0f, -1.9f, -0.0f);
+        sl[0].Direction = Vector3f(sinf(m_scale), 0.0f, cosf(m_scale));
+        sl[0].Attenuation.Linear = 0.1f;
+        sl[0].Cutoff = 20.0f;
+
+        sl[1].DiffuseIntensity = 5.0f;
+        sl[1].Color = Vector3f(0.0f, 1.0f, 1.0f);
+        sl[1].Position = m_pGameCamera->GetPos();
+        sl[1].Direction = m_pGameCamera->GetTarget();
+        sl[1].Attenuation.Linear = 0.1f;
+        sl[1].Cutoff = 10.0f;
+
+        m_pEffect->SetSpotLights(2, sl);
+
+
+        Pipeline p;
+        p.Rotate(0.0f, 0.0f, 0.0f);
+        p.WorldPos(0.0f, 0.0f, 1.0f);
+        p.SetCamera(m_pGameCamera->GetPos(), m_pGameCamera->GetTarget(), m_pGameCamera->GetUp());
+        p.SetPerspectiveProj(60.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.1f, 100.0f);
+        m_pEffect->SetWVP(p.GetWVPTrans());
+        const Matrix4f& WorldTransformation = p.GetWorldTrans();
+        m_pEffect->SetWorldMatrix(WorldTransformation);
+        m_pEffect->SetDirectionalLight(m_directionalLight);
+        m_pEffect->SetEyeWorldPos(m_pGameCamera->GetPos());
+        m_pEffect->SetMatSpecularIntensity(1.0f);
+        m_pEffect->SetMatSpecularPower(32);
+
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+        glEnableVertexAttribArray(2);
+        glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)12);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)20);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IBO);
+        m_pTexture->Bind(GL_TEXTURE0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        glDisableVertexAttribArray(0);
+        glDisableVertexAttribArray(1);
+        glDisableVertexAttribArray(2);
+
+        glutSwapBuffers();
     }
 
-    glUseProgram(ShaderProgram);
+    virtual void IdleCB()
+    {
+        RenderSceneCB();
+    }
 
-    gWVPLocation = glGetUniformLocation(ShaderProgram, "gWVP");
-    assert(gWVPLocation != 0xFFFFFFFF);
-}
+    virtual void SpecialKeyboardCB(int Key, int x, int y)
+    {
+        m_pGameCamera->OnKeyboard(Key);
+    }
+
+
+    virtual void KeyboardCB(unsigned char Key, int x, int y)
+    {
+        switch (Key) {
+        case 'q':
+            glutLeaveMainLoop();
+            break;
+
+        case 'a':
+            m_directionalLight.AmbientIntensity += 0.05f;
+            break;
+
+        case 's':
+            m_directionalLight.AmbientIntensity -= 0.05f;
+            break;
+
+        case 'z':
+            m_directionalLight.DiffuseIntensity += 0.05f;
+            break;
+
+        case 'x':
+            m_directionalLight.DiffuseIntensity -= 0.05f;
+            break;
+        }
+    }
+
+
+    virtual void PassiveMouseCB(int x, int y)
+    {
+        m_pGameCamera->OnMouse(x, y);
+    }
+
+private:
+
+    void CalcNormals(const unsigned int* pIndices, unsigned int IndexCount,
+        Vertex* pVertices, unsigned int VertexCount) {
+        for (unsigned int i = 0; i < IndexCount; i += 3) {
+            unsigned int Index0 = pIndices[i];
+            unsigned int Index1 = pIndices[i + 1];
+            unsigned int Index2 = pIndices[i + 2];
+            Vector3f v1 = pVertices[Index1].m_pos - pVertices[Index0].m_pos;
+            Vector3f v2 = pVertices[Index2].m_pos - pVertices[Index0].m_pos;
+            Vector3f Normal = v1.Cross(v2);
+            Normal.Normalize();
+
+            pVertices[Index0].m_normal += Normal;
+            pVertices[Index1].m_normal += Normal;
+            pVertices[Index2].m_normal += Normal;
+        }
+
+        for (unsigned int i = 0; i < VertexCount; i++) {
+            pVertices[i].m_normal.Normalize();
+        }
+    }
+
+
+    void CreateVertexBuffer(const unsigned int* pIndices, unsigned int IndexCount)
+    {
+        Vertex Vertices[4] = { Vertex(Vector3f(-10.0f, -2.0f, -10.0f), Vector2f(0.0f, 0.0f)),
+                               Vertex(Vector3f(10.0f, -2.0f, -10.0f), Vector2f(1.0f, 0.0f)),
+                               Vertex(Vector3f(10.0f, -2.0f, 10.0f), Vector2f(1.0f, 1.0f)),
+                               Vertex(Vector3f(-10.0f, -2.0f, 10.0f), Vector2f(0.0f, 1.0f)) };
+
+        unsigned int VertexCount = ARRAY_SIZE_IN_ELEMENTS(Vertices);
+
+        CalcNormals(pIndices, IndexCount, Vertices, VertexCount);
+
+        glGenBuffers(1, &m_VBO);
+        glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
+    }
+
+    void CreateIndexBuffer(const unsigned int* pIndices, unsigned int SizeInBytes)
+    {
+        glGenBuffers(1, &m_IBO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, SizeInBytes, pIndices, GL_STATIC_DRAW);
+    }
+
+
+    GLuint m_VBO;
+    GLuint m_IBO;
+    LightingTechnique* m_pEffect;
+    Texture* m_pTexture;
+    Camera* m_pGameCamera;
+    float m_scale;
+    DirectionalLight m_directionalLight;
+};
+
 
 int main(int argc, char** argv)
 {
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
-    glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-    glutInitWindowPosition(100, 100);
-    glutCreateWindow("Tutorial 15");
-    glutGameModeString("1280x1024@32");
-    glutEnterGameMode();
+    GLUTBackendInit(argc, argv);
 
-    InitializeGlutCallbacks();
-
-    pGameCamera = new Camera(WINDOW_WIDTH, WINDOW_HEIGHT);
-
-    // Must be done after glut is initialized!
-    GLenum res = glewInit();
-    if (res != GLEW_OK) {
-        fprintf(stderr, "Error: '%s'\n", glewGetErrorString(res));
+    if (!GLUTBackendCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, 32, false, "Tutorial 21")) {
         return 1;
     }
 
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    Main* pApp = new Main();
 
-    CreateVertexBuffer();
-    CreateIndexBuffer();
+    if (!pApp->Init()) {
+        return 1;
+    }
 
-    CompileShaders();
+    pApp->Run();
 
-    glutMainLoop();
+    delete pApp;
 
     return 0;
 }

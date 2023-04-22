@@ -1,25 +1,6 @@
-/*
-
-    Copyright 2010 Etay Meiri
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
 #include <GL/freeglut.h>
 
 #include "camera.h"
-
-#define M_PI 3.14
 
 const static float STEP_SCALE = 0.1f;
 const static int MARGIN = 10;
@@ -83,10 +64,6 @@ void Camera::Init()
 
     m_AngleV = -ToDegree(asin(m_target.y));
 
-    m_OnUpperEdge = false;
-    m_OnLowerEdge = false;
-    m_OnLeftEdge = false;
-    m_OnRightEdge = false;
     m_mousePos.x = m_windowWidth / 2;
     m_mousePos.y = m_windowHeight / 2;
 
@@ -141,72 +118,22 @@ bool Camera::OnKeyboard(int Key)
 
 void Camera::OnMouse(int x, int y)
 {
+    if ((x == m_mousePos.x) && (y == m_mousePos.y)) return;
+
     const int DeltaX = x - m_mousePos.x;
     const int DeltaY = y - m_mousePos.y;
-
-    m_mousePos.x = x;
-    m_mousePos.y = y;
 
     m_AngleH += (float)DeltaX / 20.0f;
     m_AngleV += (float)DeltaY / 20.0f;
 
-    if (DeltaX == 0) {
-        if (x <= MARGIN) {
-            //    m_AngleH -= 1.0f;
-            m_OnLeftEdge = true;
-        }
-        else if (x >= (m_windowWidth - MARGIN)) {
-            //    m_AngleH += 1.0f;
-            m_OnRightEdge = true;
-        }
-    }
-    else {
-        m_OnLeftEdge = false;
-        m_OnRightEdge = false;
-    }
-
-    if (DeltaY == 0) {
-        if (y <= MARGIN) {
-            m_OnUpperEdge = true;
-        }
-        else if (y >= (m_windowHeight - MARGIN)) {
-            m_OnLowerEdge = true;
-        }
-    }
-    else {
-        m_OnUpperEdge = false;
-        m_OnLowerEdge = false;
-    }
-
     Update();
+    glutWarpPointer(m_mousePos.x, m_mousePos.y);
 }
 
 
 void Camera::OnRender()
 {
     bool ShouldUpdate = false;
-
-    if (m_OnLeftEdge) {
-        m_AngleH -= 0.1f;
-        ShouldUpdate = true;
-    }
-    else if (m_OnRightEdge) {
-        m_AngleH += 0.1f;
-        ShouldUpdate = true;
-    }
-
-    if (m_OnUpperEdge) {
-        if (m_AngleV > -90.0f) {
-            m_AngleV -= 0.1f;
-            ShouldUpdate = true;
-        }
-    }
-    else if (m_OnLowerEdge) {
-        if (m_AngleV < 90.0f) {
-            m_AngleV += 0.1f;
-            ShouldUpdate = true;
-        }
-    }
 
     if (ShouldUpdate) {
         Update();

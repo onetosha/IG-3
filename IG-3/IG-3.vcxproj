@@ -70,6 +70,14 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>D:\ImageMagick-7.1.1-Q16-HDRI\include\MagickWand;D:\ImageMagick-7.1.1-Q16-HDRI\include\MagickCore;D:\ImageMagick-7.1.1-Q16-HDRI\include\Magick++;D:\ImageMagick-7.1.1-Q16-HDRI\include;$(IncludePath)</IncludePath>
+    <ReferencePath>D:\ImageMagick-7.1.1-Q16-HDRI\lib;$(ReferencePath)</ReferencePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>D:\ImageMagick-7.1.1-Q16-HDRI\include\MagickCore;D:\ImageMagick-7.1.1-Q16-HDRI\include\MagickWand;D:\ImageMagick-7.1.1-Q16-HDRI\include\Magick++;D:\ImageMagick-7.1.1-Q16-HDRI\include;$(IncludePath)</IncludePath>
+    <ReferencePath>D:\ImageMagick-7.1.1-Q16-HDRI\lib;$(ReferencePath)</ReferencePath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -104,10 +112,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>D:\ImageMagick-7.1.1-Q16-HDRI\include\Magick++;D:\ImageMagick-7.1.1-Q16-HDRI\include\MagickCore;D:\ImageMagick-7.1.1-Q16-HDRI\include\MagickWand;D:\ImageMagick-7.1.1-Q16-HDRI\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalUsingDirectories>%(AdditionalUsingDirectories)</AdditionalUsingDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\ImageMagick-7.1.1-Q16-HDRI\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -118,27 +130,40 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>D:\ImageMagick-7.1.1-Q16-HDRI\include\MagickWand;D:\ImageMagick-7.1.1-Q16-HDRI\include\MagickCore;D:\ImageMagick-7.1.1-Q16-HDRI\include\Magick++;D:\ImageMagick-7.1.1-Q16-HDRI\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>D:\ImageMagick-7.1.1-Q16-HDRI\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="camera.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="math_3d.cpp" />
-    <ClCompile Include="pipeline.cpp" />
-  </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="camera.h" />
-    <ClInclude Include="math_3d.h" />
-    <ClInclude Include="pipeline.h" />
+    <ClInclude Include="..\..\Новая папка\OpenGl-3\callbacks.h" />
+    <ClInclude Include="..\..\Новая папка\OpenGl-3\camera.h" />
+    <ClInclude Include="..\..\Новая папка\OpenGl-3\glut_backend.h" />
+    <ClInclude Include="..\..\Новая папка\OpenGl-3\lighting_technique.h" />
+    <ClInclude Include="..\..\Новая папка\OpenGl-3\math_3d.h" />
+    <ClInclude Include="..\..\Новая папка\OpenGl-3\pipeline.h" />
+    <ClInclude Include="..\..\Новая папка\OpenGl-3\technique.h" />
+    <ClInclude Include="..\..\Новая папка\OpenGl-3\texture.h" />
+    <ClInclude Include="..\..\Новая папка\OpenGl-3\util.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Новая папка\OpenGl-3\camera.cpp" />
+    <ClCompile Include="..\..\Новая папка\OpenGl-3\glut_backend.cpp" />
+    <ClCompile Include="..\..\Новая папка\OpenGl-3\lighting_technique.cpp" />
+    <ClCompile Include="..\..\Новая папка\OpenGl-3\main.cpp" />
+    <ClCompile Include="..\..\Новая папка\OpenGl-3\math_3d.cpp" />
+    <ClCompile Include="..\..\Новая папка\OpenGl-3\pipeline.cpp" />
+    <ClCompile Include="..\..\Новая папка\OpenGl-3\technique.cpp" />
+    <ClCompile Include="..\..\Новая папка\OpenGl-3\texture.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
